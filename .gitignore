@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Jupyter
+.ipynb_checkpoints/
+*-checkpoint.ipynb
+*_executed.ipynb
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+*.egg
+
+# IDE / editor
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Quarto
+/.quarto/
+_site/
+_freeze/
+
+# Logs
+*.log
+
+# OS
+Thumbs.db
+
+# Local data — комменттэй үлдээв; final тайланд CSV хавсаргахаар бол доорх мөрийг устгах
+# data/*.csv

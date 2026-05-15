@@ -30,9 +30,12 @@ dist/
 .DS_Store
 
 # Quarto
-/.quarto/
+.quarto/
 _site/
 _freeze/
+.jupyter_cache/
+slides_files/
+report_files/
 
 # Logs
 *.log

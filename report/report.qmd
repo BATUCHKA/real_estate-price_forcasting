@@ -17,8 +17,8 @@ format:
     code-block-border-left: "#1f77b4"
     fig-pos: H
     fig-align: center
-    mainfont: "DejaVu Serif"
-    monofont: "DejaVu Sans Mono"
+    mainfont: "Helvetica"
+    monofont: "Menlo"
     pdf-engine: xelatex
 execute:
   echo: true
@@ -115,10 +115,11 @@ print(f'Цэвэр өгөгдөл: {len(df)} зар (анхнаасаа {len(df_
 #| label: tbl-district-counts
 #| tbl-cap: "Дүүрэг тус бүрийн зарын тоо ба дундаж м²-ийн үнэ"
 district_summary = df.groupby('district_grouped').agg(
-    Зар=('price_mnt', 'count'),
-    Дундаж_үнэ_сая=('price_mnt', lambda x: round(x.mean() / 1e6, 1)),
-    м²_үнэ_сая=('price_per_m2', lambda x: round(x.median() / 1e6, 2)),
-).sort_values('Зар', ascending=False)
+    n=('price_mnt', 'count'),
+    mean_price=('price_mnt', lambda x: round(x.mean() / 1e6, 1)),
+    median_m2=('price_per_m2', lambda x: round(x.median() / 1e6, 2)),
+).sort_values('n', ascending=False)
+district_summary.columns = ['Зарын тоо', 'Дундаж үнэ (сая ₮)', 'м²-ийн дундаж үнэ (сая ₮)']
 district_summary
 ```
 
@@ -283,7 +284,7 @@ results_df = pd.DataFrame(results).sort_values('RMSE (сая ₮)')
 results_df
 ```
 
-@tbl-results-аас харахад **Random Forest** хамгийн өндөр нарийвчлалтай (RMSE 184 сая ₮, R² 0.905) байгаа нь H4 гипотезийг батлав. Шугаман бус мод-суурьт загвар нь шугаман загвараас RMSE-ийг ~40 хувиар бууруулсан.
+@tbl-results хүснэгтээс харахад **Random Forest** хамгийн өндөр нарийвчлалтай (RMSE 184 сая ₮, R² 0.905) байгаа нь H4 гипотезийг батлав. Шугаман бус мод-суурьт загвар нь шугаман загвараас RMSE-ийг ~40 хувиар бууруулсан.
 
 ## Таамаг vs бодит үнэ
 

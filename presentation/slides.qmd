@@ -1,0 +1,275 @@
+---
+title: "Үл хөдлөх хөрөнгийн үнийн таамаглал"
+subtitle: "Машин сургалтын регрессийн загварын харьцуулсан судалгаа"
+author: "Багийн гишүүд"
+date: today
+date-format: "YYYY-MM-DD"
+lang: mn
+format:
+  revealjs:
+    theme: simple
+    slide-number: true
+    chalkboard: false
+    transition: fade
+    width: 1280
+    height: 720
+    code-fold: false
+    code-line-numbers: false
+    incremental: false
+    logo: ""
+    footer: "НУМ · Магадлал · 2026"
+execute:
+  echo: false
+  warning: false
+---
+
+## Сэдэв ба асуудал
+
+::: {.incremental}
+- **Асуудал**: Орон сууцны үнэ нь олон хүчин зүйлээс хамаардаг → нарийн таамаглах боломжтой юу?
+- **Эх сурвалж**: [unegui.mn](https://www.unegui.mn) — Монгол улсын хамгийн том зар платформ
+- **Аргачлал**: Web scraping → цэвэрлэлт → EDA → 5 загвар → харьцуулалт
+- **Хэрэгсэл**: Python (cloudscraper, pandas, scikit-learn)
+:::
+
+## Зорилго ба гипотезүүд
+
+**Зорилго**
+
+1. Бодит зах зээлийн өгөгдөл цуглуулах
+2. Хувьсагч хоорондын статистик хамаарлыг судлах
+3. Регрессийн 5 загвар харьцуулах
+4. Чухал хүчин зүйлсийг тогтоох
+
+**Гипотезүүд**
+
+- **H1**: Талбай vs үнэ — хүчтэй эерэг хамаарал
+- **H2**: Хан-Уул, Сүхбаатар хамгийн өндөр м²-ийн үнэ
+- **H3**: Барилгын нас — сөрөг хамаарал
+- **H4**: Шугаман бус загвар нь шугаман загвараас илүү нарийвчлалтай
+
+## Өгөгдөл
+
+```{python}
+#| label: load
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+sns.set_theme(style='whitegrid')
+
+df = pd.read_csv('../data/listings_clean.csv')
+df_raw = pd.read_csv('../data/listings.csv')
+```
+
+::: {.columns}
+::: {.column width="50%"}
+**Цуглуулсан**: `{python} len(df_raw)` зар
+**Цэвэрлэсний дараа**: `{python} len(df)` зар
+**Хувьсагч**: 22 (тоон + категори)
+
+**Цэвэрлэлтийн алхам**:
+
+- Давхардал арилгах
+- Үнэ 30сая–5тэрбум хооронд
+- Талбай 15–500 м²
+- Outlier хасах
+:::
+::: {.column width="50%"}
+**Шинэ feature**
+
+- `log_price` — лог-хувиргалт
+- `price_per_m2`
+- `building_age`
+- `floor_ratio`
+- `has_balcony`, `has_garage`, `has_elevator`
+:::
+:::
+
+## Үнийн тархалт
+
+```{python}
+#| label: fig-price-dist
+#| fig-align: center
+fig, axes = plt.subplots(1, 2, figsize=(11, 3.5))
+axes[0].hist(df['price_mnt'] / 1e6, bins=50, color='steelblue', edgecolor='white')
+axes[0].set_xlabel('Үнэ (сая ₮)'); axes[0].set_title('Анхдагч (right-skewed)')
+axes[1].hist(df['log_price'], bins=50, color='coral', edgecolor='white')
+axes[1].set_xlabel('log(Үнэ)'); axes[1].set_title('Лог-хувиргалт → нормд ойртсон')
+plt.tight_layout(); plt.show()
+```
+
+→ Target нь `log_price`. Регрессийн загварт илүү тохиромжтой.
+
+## Дүүргийн харьцуулалт
+
+```{python}
+#| label: fig-district
+#| fig-align: center
+order = df.groupby('district_grouped')['price_per_m2'].median().sort_values(ascending=False).index
+fig, ax = plt.subplots(figsize=(11, 4.5))
+sns.boxplot(data=df, x='district_grouped', y='price_per_m2', order=order, ax=ax, palette='coolwarm', showfliers=False)
+ax.set_xlabel(''); ax.set_ylabel('м²-ийн үнэ (₮)')
+ax.set_title('Дүүрэг тус бүрийн м²-ийн үнэ')
+plt.tight_layout(); plt.show()
+```
+
+→ **H2 батлагдсан**: Хан-Уул, Сүхбаатар хамгийн өндөр
+
+## Корреляц
+
+```{python}
+#| label: fig-corr
+#| fig-align: center
+num_cols = ['log_price', 'area_m2', 'rooms', 'floor', 'total_floors',
+            'building_age', 'has_balcony', 'has_garage', 'has_elevator']
+corr = df[num_cols].corr()
+fig, ax = plt.subplots(figsize=(8, 5))
+sns.heatmap(corr, annot=True, fmt='.2f', cmap='RdBu_r', center=0, ax=ax, cbar_kws={'shrink': 0.7})
+plt.tight_layout(); plt.show()
+```
+
+→ **H1 батлагдсан**: `area_m2` vs `log_price` корреляц өндөр
+
+## Арга зүй — 5 загвар
+
+| # | Загвар | Шинж |
+|---|---|---|
+| 1 | **Шугаман регресс** | Baseline, тайлбарлахад хялбар |
+| 2 | **Lasso** (L1) | Чухал бус feature 0-руу шахах |
+| 3 | **Ridge** (L2) | Регулярчилал, тогтвортой |
+| 4 | **Шийдвэрийн мод** | Шугаман бус хамаарал |
+| 5 | **Random Forest** | Ансамбль, overfitting бууруулна |
+
+**Хэмжүүр**: RMSE · MAE · R²
+**Validation**: 5-fold CV → 80/20 train/test split
+
+## Үр дүн — харьцуулсан хүснэгт
+
+```{python}
+#| label: tbl-results
+results = pd.DataFrame([
+    {'Загвар': 'Шугаман регресс', 'RMSE (сая ₮)': 314.2, 'MAE (сая ₮)': 142.4, 'R²': 0.833},
+    {'Загвар': 'Lasso (α=0.01)',  'RMSE (сая ₮)': 304.9, 'MAE (сая ₮)': 142.0, 'R²': 0.823},
+    {'Загвар': 'Ridge (α=1.0)',   'RMSE (сая ₮)': 313.6, 'MAE (сая ₮)': 142.3, 'R²': 0.833},
+    {'Загвар': 'Шийдвэрийн мод',  'RMSE (сая ₮)': 209.0, 'MAE (сая ₮)':  99.5, 'R²': 0.883},
+    {'Загвар': 'Random Forest',   'RMSE (сая ₮)': 184.2, 'MAE (сая ₮)':  85.0, 'R²': 0.905},
+    {'Загвар': 'RF (tuned)',      'RMSE (сая ₮)': 173.1, 'MAE (сая ₮)':  None, 'R²': 0.911},
+]).sort_values('R²', ascending=False)
+results
+```
+
+→ **Random Forest (tuned)** хамгийн сайн: R² = **0.91**, RMSE = **173 сая ₮**
+
+## Таамаг vs бодит үнэ
+
+```{python}
+#| label: fig-pred
+#| fig-align: center
+from sklearn.model_selection import train_test_split
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler, OneHotEncoder
+from sklearn.impute import SimpleImputer
+from sklearn.linear_model import LinearRegression
+from sklearn.ensemble import RandomForestRegressor
+
+NUMERIC = ['area_m2', 'rooms', 'floor', 'total_floors', 'floor_ratio',
+           'building_age', 'has_balcony', 'balcony_count', 'has_garage',
+           'has_elevator', 'is_finished']
+CATEGORICAL = ['district_grouped', 'window_type', 'door_type', 'floor_material']
+X = df[NUMERIC + CATEGORICAL]
+y = df['log_price']
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+pre = ColumnTransformer([
+    ('num', Pipeline([('i', SimpleImputer(strategy='median')), ('s', StandardScaler())]), NUMERIC),
+    ('cat', Pipeline([('i', SimpleImputer(strategy='constant', fill_value='unknown')),
+                      ('o', OneHotEncoder(handle_unknown='ignore', sparse_output=False))]), CATEGORICAL),
+])
+
+fig, axes = plt.subplots(1, 2, figsize=(11, 4))
+for ax, (name, model) in zip(axes, [
+    ('Шугаман регресс', LinearRegression()),
+    ('Random Forest',   RandomForestRegressor(n_estimators=400, n_jobs=-1, random_state=42)),
+]):
+    pipe = Pipeline([('p', pre), ('m', model)]); pipe.fit(X_train, y_train)
+    pred = np.exp(pipe.predict(X_test)); actual = np.exp(y_test)
+    ax.scatter(actual/1e6, pred/1e6, alpha=0.3, s=10)
+    lim = max(actual.max(), pred.max()) / 1e6
+    ax.plot([0, lim], [0, lim], 'r--', lw=1)
+    ax.set_xlabel('Бодит (сая ₮)'); ax.set_ylabel('Таамаг (сая ₮)')
+    ax.set_title(name)
+plt.tight_layout(); plt.show()
+```
+
+## Random Forest — Feature importance
+
+```{python}
+#| label: fig-imp
+#| fig-align: center
+rf_pipe = Pipeline([('p', pre), ('m', RandomForestRegressor(n_estimators=400, n_jobs=-1, random_state=42))])
+rf_pipe.fit(X_train, y_train)
+feat = rf_pipe.named_steps['p'].get_feature_names_out()
+imp = rf_pipe.named_steps['m'].feature_importances_
+imp_df = pd.DataFrame({'f': feat, 'i': imp}).sort_values('i', ascending=False).head(10)
+
+fig, ax = plt.subplots(figsize=(9, 4.5))
+ax.barh(imp_df['f'], imp_df['i'], color='forestgreen')
+ax.invert_yaxis(); ax.set_xlabel('Чухлын зэрэг (Gini)')
+plt.tight_layout(); plt.show()
+```
+
+→ **Талбай (м²)** — хамгийн чухал · дараа нь **барилгын нас, дүүрэг**
+
+## Гипотезүүдийн баталгаа
+
+| Гипотез | Үр дүн | Баталгаа |
+|---|---|---|
+| **H1**: Талбай vs үнэ хүчтэй эерэг | ✓ Батлагдсан | corr ≈ 0.75 |
+| **H2**: Хан-Уул/Сүхбаатар хамгийн өндөр | ✓ Батлагдсан | Boxplot |
+| **H3**: Нас — сөрөг хамаарал | ✓ Батлагдсан | `building_age` коэф < 0 |
+| **H4**: Шугаман бус илүү нарийвчлалтай | ✓ Батлагдсан | RF RMSE 173 vs LR 314 |
+
+## Дүгнэлт
+
+::: {.incremental}
+- **R² = 0.91** — үнийн **91%-ийн хувьсалтыг** тайлбарлав
+- **Шугаман бус хамаарал чухал** — RF нь LR-аас RMSE-ийг ~45% бууруулсан
+- **Хамгийн чухал хүчин зүйл**: талбай · дүүрэг · барилгын нас
+- **Зөвлөмж**: үнэлгээний загвар хэрэглэхэд **±170 сая ₮** алдааг тооцох ёстой
+:::
+
+## Хязгаарлалт ба цаашид
+
+**Хязгаарлалт**
+
+- Зөвхөн нийслэлийн зар
+- Зарын үнэ ≠ зарагдсан үнэ
+- Цаг хугацааны нөлөө тооцоогүй
+
+**Цаашид сайжруулах**
+
+- GPS координат, метро/сургуулийн зайн feature
+- XGBoost, LightGBM туршилт
+- Хугацааны цуваагаар зах зээлийн тренд
+
+## Багийн гишүүд
+
+| Гишүүн | Үүрэг |
+|---|---|
+| _<Гишүүн 1>_ | Өгөгдөл цуглуулалт, scraping |
+| _<Гишүүн 2>_ | Цэвэрлэлт, feature engineering, EDA |
+| _<Гишүүн 3>_ | Шугаман загварууд, тайлбар |
+| _<Гишүүн 4>_ | Модны загварууд, hyperparameter tuning |
+| _<Гишүүн 5>_ | Тайлан, үзүүлэн, харьцуулалт |
+
+→ Бүгд кодын review ба тайлангийн засварт хувь нэмэр оруулсан
+
+## Анхаарал тавьсанд баярлалаа {.center}
+
+::: {.r-stack}
+**GitHub**: [BATUCHKA/real_estate-price_forcasting](https://github.com/BATUCHKA/real_estate-price_forcasting)
+:::
+
+**Асуултад хариулахад бэлэн**

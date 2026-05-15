@@ -129,7 +129,9 @@ def print_prediction(row: pd.DataFrame, price_mnt: float):
     print(f"  Давхар:           {int(r['floor'])}/{int(r['total_floors'])}")
     print(f"  Барилгын нас:     {int(r['building_age'])} жил")
     print(f"  Дүүрэг:           {r['district_grouped']}")
-    print(f"  Тагт/Гараж/Цахи:  {'✓' if r['has_balcony'] else '✗'}/{'✓' if r['has_garage'] else '✗'}/{'✓' if r['has_elevator'] else '✗'}")
+    bal_str = f"{int(r['balcony_count'])} ширхэг" if r['has_balcony'] else "✗"
+    print(f"  Тагт:             {bal_str}")
+    print(f"  Гараж/Цахилгаан:  {'✓' if r['has_garage'] else '✗'}/{'✓' if r['has_elevator'] else '✗'}")
     print(f"  → Таамагласан үнэ: {price_mnt/1e6:.1f} сая ₮  ({price_mnt/r['area_m2']/1e6:.2f} сая ₮/м²)")
 
 
@@ -170,7 +172,8 @@ def main():
                    choices=["Хан-Уул", "Баянзүрх", "Сүхбаатар", "Баянгол",
                             "Сонгинохайрхан", "Чингэлтэй", "Бусад"],
                    help="Дүүрэг")
-    p.add_argument("--balcony", action="store_true", help="Тагттай")
+    p.add_argument("--balcony", action="store_true", help="Тагттай (нэг тагттай)")
+    p.add_argument("--balcony-count", type=int, default=None, help="Тагтны тоо (0=байхгүй, 1, 2 ...)")
     p.add_argument("--garage", action="store_true", help="Гараж бий")
     p.add_argument("--elevator", action="store_true", help="Цахилгаан шаттай")
     p.add_argument("--finished", action="store_true", help="Ашиглалтад орсон")
@@ -190,11 +193,20 @@ def main():
         print("--examples ашиглах эсвэл --area параметр өгнө үү. --help харна уу.")
         sys.exit(1)
 
+    # --balcony-count N тодорхой өгсөн бол түүнийг ашиглах,
+    # эс бол --balcony flag-аар (0 эсвэл 1)
+    if args.balcony_count is not None:
+        bal_count = args.balcony_count
+        bal_has = bal_count > 0
+    else:
+        bal_has = args.balcony
+        bal_count = 1 if bal_has else 0
+
     row = make_row(
         area=args.area, rooms=args.rooms, floor=args.floor,
         total_floors=args.total_floors, age=args.age, district=args.district,
-        balcony=args.balcony, garage=args.garage,
-        elevator=args.elevator, finished=args.finished,
+        balcony=bal_has, balcony_count=bal_count,
+        garage=args.garage, elevator=args.elevator, finished=args.finished,
     )
     price = predict(model, row)
     print_prediction(row, price)

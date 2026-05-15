@@ -105,6 +105,25 @@ jupyter notebook notebooks/04_models.ipynb
 
 **Үнэлгээний хэмжүүр**: RMSE, MAE, R² (тест дээр)
 
+### 5. Шинэ айлын үнэ таамаглах
+
+```bash
+# Жишээ таамаглал (5 өөр төрлийн айл)
+python predict.py --examples
+
+# Тодорхой айл
+python predict.py --area 80 --rooms 3 --district Хан-Уул --age 5 --balcony --elevator
+
+# Бүх параметр
+python predict.py \
+    --area 95 --rooms 3 --floor 7 --total-floors 12 \
+    --age 3 --district Сүхбаатар \
+    --balcony --garage --elevator --finished
+```
+
+Эхний удаа ажиллуулахад загварыг сургаж `models/rf_model.joblib`-д хадгална.
+Дараагийн удаад хадгалсан загварыг шууд ачаалдаг → секундын дотор хариу өгнө.
+
 ## Өгөгдлийн тухай
 
 **Эх сурвалж**: [unegui.mn](https://www.unegui.mn/l-hdlh/l-hdlh-zarna/oron-suuts-zarna/) — Монгол улсын хамгийн том зар сурталчилгааны платформ.
